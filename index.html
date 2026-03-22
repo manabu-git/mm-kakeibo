@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M&M家計簿 - manabu & mako</title>
+    <meta name="description" content="manabuとmakoの家計簿アプリ - 二人の支出・収入を簡単管理">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">💰</span>
+                <h1>M&M<span class="logo-sub">家計簿</span></h1>
+            </div>
+            <div class="header-month">
+                <button id="prevMonth" class="month-nav" aria-label="前月">‹</button>
+                <span id="currentMonth" class="month-label"></span>
+                <button id="nextMonth" class="month-nav" aria-label="翌月">›</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="dashboard" id="tab-dashboard">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">ダッシュボード</span>
+        </button>
+        <button class="tab-btn" data-tab="scan" id="tab-scan">
+            <span class="tab-icon">📸</span>
+            <span class="tab-label">レシート</span>
+        </button>
+        <button class="tab-btn" data-tab="add" id="tab-add">
+            <span class="tab-icon">➕</span>
+            <span class="tab-label">追加</span>
+        </button>
+        <button class="tab-btn" data-tab="history" id="tab-history">
+            <span class="tab-icon">📋</span>
+            <span class="tab-label">履歴</span>
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Tab -->
+        <section id="dashboard" class="tab-content active">
+            <!-- Hero Welcome Section -->
+            <div class="hero-section">
+                <img src="mako_ai.png" alt="Mako AI" class="hero-image anime-float" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'%23fecfef\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'30\'>👩‍💼</text></svg>'">
+                <div class="hero-text">
+                    <h2 class="hero-title">おかえりなさい、makoさん！</h2>
+                    <p class="hero-subtitle">今月も一緒にやりくり頑張りましょう✨</p>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="summary-card income-card">
+                    <div class="card-icon">📥</div>
+                    <div class="card-info">
+                        <span class="card-label">収入</span>
+                        <span class="card-amount" id="totalIncome">¥0</span>
+                    </div>
+                </div>
+                <div class="summary-card expense-card">
+                    <div class="card-icon">📤</div>
+                    <div class="card-info">
+                        <span class="card-label">支出</span>
+                        <span class="card-amount" id="totalExpense">¥0</span>
+                    </div>
+                </div>
+                <div class="summary-card balance-card">
+                    <div class="card-icon">💎</div>
+                    <div class="card-info">
+                        <span class="card-label">残高</span>
+                        <span class="card-amount" id="totalBalance">¥0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Person Breakdown -->
+            <div class="person-breakdown">
+                <div class="person-card manabu-card">
+                    <div class="person-avatar">🧑‍💻</div>
+                    <div class="person-name">manabu</div>
+                    <div class="person-amount" id="manabuExpense">¥0</div>
+                    <div class="person-bar"><div class="person-bar-fill manabu-fill" id="manabuBar"></div></div>
+                </div>
+                <div class="person-card mako-card">
+                    <div class="person-avatar mako-avatar-wrapper">
+                        <img src="mako_ai.png" alt="Mako AI" class="mako-avatar-img anime-float" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <span style="display:none;">👩‍💼</span>
+                    </div>
+                    <div class="person-name">mako</div>
+                    <div class="person-amount" id="makoExpense">¥0</div>
+                    <div class="person-bar"><div class="person-bar-fill mako-fill" id="makoBar"></div></div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-section">
+                <div class="chart-card">
+                    <h3 class="chart-title">カテゴリ別支出</h3>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">日別推移</h3>
+                    <div class="chart-container">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="recent-section">
+                <h3 class="section-title">最近の取引</h3>
+                <div id="recentList" class="transaction-list"></div>
+            </div>
+        </section>
+
+        <!-- Scan Tab -->
+        <section id="scan" class="tab-content">
+            <div class="scan-container">
+                <h2 class="form-title">📸 レシートスキャン</h2>
+                <p class="scan-description">レシートを撮影すると、AIが自動で読み取ります</p>
+
+                <!-- API Key Notice -->
+                <div id="apiKeyNotice" class="api-key-notice" style="display:none;">
+                    <span class="notice-icon">🔑</span>
+                    <p>Gemini APIキーが未設定です</p>
+                    <button id="openSettingsBtn" class="settings-link-btn">設定する</button>
+                </div>
+
+                <!-- Camera Input -->
+                <div class="scan-input-area" id="scanInputArea">
+                    <label for="receiptCamera" class="scan-capture-btn">
+                        <span class="scan-capture-icon">📷</span>
+                        <span class="scan-capture-text">レシートを撮影</span>
+                        <span class="scan-capture-sub">タップでカメラ起動</span>
+                    </label>
+                    <input type="file" id="receiptCamera" accept="image/*" capture="environment" class="scan-file-input">
+
+                    <div class="scan-or">または</div>
+
+                    <label for="receiptFile" class="scan-file-btn">
+                        <span>🖼️</span> 画像を選択
+                    </label>
+                    <input type="file" id="receiptFile" accept="image/*" class="scan-file-input">
+                </div>
+
+                <!-- Preview -->
+                <div id="scanPreview" class="scan-preview" style="display:none;">
+                    <img id="previewImage" class="preview-image" alt="レシート画像">
+                    <div class="preview-actions">
+                        <button id="scanExecuteBtn" class="scan-execute-btn">
+                            <span>🤖</span> AIで読み取る
+                        </button>
+                        <button id="scanCancelBtn" class="scan-cancel-btn">やり直す</button>
+                    </div>
+                </div>
+
+                <!-- Loading -->
+                <div id="scanLoading" class="scan-loading" style="display:none;">
+                    <div class="loading-spinner"></div>
+                    <p class="loading-text">AIがレシートを解析中...</p>
+                    <p class="loading-sub">店名・品目・金額を自動で読み取っています</p>
+                </div>
+
+                <!-- Results -->
+                <div id="scanResults" class="scan-results" style="display:none;">
+                    <div class="result-header">
+                        <h3 class="result-title">🎉 読み取り結果</h3>
+                    </div>
+
+                    <!-- Store Info -->
+                    <div class="result-store" id="resultStore"></div>
+
+                    <!-- Person Selection -->
+                    <div class="result-person-section">
+                        <label class="form-label">誰の買い物？</label>
+                        <div class="person-toggle">
+                            <button type="button" class="person-btn active" data-scan-person="manabu" id="scanPersonManabu">
+                                <span class="person-btn-avatar">🧑‍💻</span>
+                                <span>manabu</span>
+                            </button>
+                            <button type="button" class="person-btn" data-scan-person="mako" id="scanPersonMako">
+                                <span class="person-btn-avatar">👩‍💼</span>
+                                <span>mako</span>
+                            </button>
+                            <button type="button" class="person-btn" data-scan-person="shared" id="scanPersonShared">
+                                <span class="person-btn-avatar">👫</span>
+                                <span>共通</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Items -->
+                    <div class="result-items" id="resultItems"></div>
+
+                    <!-- Total -->
+                    <div class="result-total" id="resultTotal"></div>
+
+                    <!-- Actions -->
+                    <div class="result-actions">
+                        <button id="saveAllBtn" class="submit-btn">
+                            <span class="submit-icon">✅</span>
+                            まとめて登録
+                        </button>
+                        <button id="saveTotalBtn" class="save-total-btn">
+                            <span>💰</span>
+                            合計のみ登録
+                        </button>
+                        <button id="scanAgainBtn" class="scan-cancel-btn">別のレシートを撮る</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Add Tab -->
+        <section id="add" class="tab-content">
+            <div class="add-form-container">
+                <h2 class="form-title">💫 新しい記録を追加</h2>
+                <form id="entryForm" class="entry-form">
+                    <!-- Type Toggle -->
+                    <div class="type-toggle">
+                        <button type="button" class="type-btn active" data-type="expense" id="typeExpense">
+                            <span>📤</span> 支出
+                        </button>
+                        <button type="button" class="type-btn" data-type="income" id="typeIncome">
+                            <span>📥</span> 収入
+                        </button>
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="form-group">
+                        <label for="amount" class="form-label">金額</label>
+                        <div class="amount-input-wrapper">
+                            <span class="currency-symbol">¥</span>
+                            <input type="number" id="amount" class="form-input amount-input" placeholder="0" min="0" required>
+                        </div>
+                    </div>
+
+                    <!-- Person -->
+                    <div class="form-group">
+                        <label class="form-label">誰の？</label>
+                        <div class="person-toggle">
+                            <button type="button" class="person-btn active" data-person="manabu" id="personManabu">
+                                <span class="person-btn-avatar">🧑‍💻</span>
+                                <span>manabu</span>
+                            </button>
+                            <button type="button" class="person-btn" data-person="mako" id="personMako">
+                                <span class="person-btn-avatar">👩‍💼</span>
+                                <span>mako</span>
+                            </button>
+                            <button type="button" class="person-btn" data-person="shared" id="personShared">
+                                <span class="person-btn-avatar">👫</span>
+                                <span>共通</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="form-group">
+                        <label for="category" class="form-label">カテゴリ</label>
+                        <div class="category-grid" id="categoryGrid"></div>
+                    </div>
+
+                    <!-- Date -->
+                    <div class="form-group">
+                        <label for="date" class="form-label">日付</label>
+                        <input type="date" id="date" class="form-input" required>
+                    </div>
+
+                    <!-- Memo -->
+                    <div class="form-group">
+                        <label for="memo" class="form-label">メモ（任意）</label>
+                        <input type="text" id="memo" class="form-input" placeholder="例: スーパーでの買い物">
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span class="submit-icon">✨</span>
+                        記録する
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- History Tab -->
+        <section id="history" class="tab-content">
+            <div class="history-header">
+                <h2 class="section-title">📋 取引履歴</h2>
+                <div class="history-filters">
+                    <select id="filterPerson" class="filter-select">
+                        <option value="all">全員</option>
+                        <option value="manabu">manabu</option>
+                        <option value="mako">mako</option>
+                        <option value="shared">共通</option>
+                    </select>
+                    <select id="filterCategory" class="filter-select">
+                        <option value="all">全カテゴリ</option>
+                    </select>
+                    <select id="filterType" class="filter-select">
+                        <option value="all">全タイプ</option>
+                        <option value="expense">支出のみ</option>
+                        <option value="income">収入のみ</option>
+                    </select>
+                </div>
+            </div>
+            <div id="historyList" class="transaction-list"></div>
+            <div id="historyEmpty" class="empty-state" style="display:none;">
+                <span class="empty-icon">📭</span>
+                <p>取引がありません</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <p class="modal-text">この記録を削除しますか？</p>
+            <div class="modal-actions">
+                <button id="cancelDelete" class="modal-btn cancel-btn">キャンセル</button>
+                <button id="confirmDelete" class="modal-btn confirm-btn">削除する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content settings-modal">
+            <h3 class="modal-title">⚙️ 設定</h3>
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="apiKeyInput" class="form-label">Gemini APIキー</label>
+                    <input type="password" id="apiKeyInput" class="form-input" placeholder="AIza...">
+                    <p class="form-hint">
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="form-link">Google AI Studio</a> で無料取得できます
+                    </p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelSettings" class="modal-btn cancel-btn">キャンセル</button>
+                <button id="saveSettings" class="modal-btn confirm-btn save-settings-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Gear Button -->
+    <button id="settingsGearBtn" class="settings-gear" aria-label="設定">⚙️</button>
+
+    <script src="app.js?v=2"></script>
+</body>
+</html>
