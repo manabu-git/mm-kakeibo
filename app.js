@@ -51,8 +51,11 @@ let state = {
     scanResult: null,
 };
 
-// ---- LocalStorage ----
-function loadEntries() {
+// ---- Storage & Sync ----
+async function loadEntries() {
+    const gasUrl = getGasUrl();
+    
+    // 1. Load from LocalStorage first for instant rendering
     try {
         const saved = localStorage.getItem('mm_kakeibo_entries');
         if (saved) {
@@ -61,13 +64,51 @@ function loadEntries() {
     } catch (e) {
         console.error('Failed to load entries:', e);
     }
+
+    // 2. Fetch from Google Sheets if configured
+    if (gasUrl) {
+        try {
+            const response = await fetch(gasUrl);
+            const data = await response.json();
+            if (data && Array.isArray(data.entries)) {
+                state.entries = data.entries;
+                // Save synced data locally
+                localStorage.setItem('mm_kakeibo_entries', JSON.stringify(state.entries));
+                updateDashboard();
+                updateHistory();
+            }
+        } catch (e) {
+            console.error('Failed to load from GAS:', e);
+            showToast('⚠️ スプレッドシートの同期に失敗しました');
+        }
+    }
 }
 
-function saveEntries() {
+async function saveEntries() {
+    // 1. Save locally immediately
     try {
         localStorage.setItem('mm_kakeibo_entries', JSON.stringify(state.entries));
     } catch (e) {
-        console.error('Failed to save entries:', e);
+        console.error('Failed to save entries locally:', e);
+    }
+
+    // 2. Sync to Google Sheets
+    const gasUrl = getGasUrl();
+    if (gasUrl) {
+        try {
+            await fetch(gasUrl, {
+                method: 'POST',
+                // Use text/plain to avoid CORS preflight issues with GAS
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'sync',
+                    entries: state.entries
+                })
+            });
+        } catch (e) {
+            console.error('Failed to sync to GAS:', e);
+            showToast('⚠️ スプレッドシートへの保存に失敗しました');
+        }
     }
 }
 
@@ -538,13 +579,17 @@ function showToast(message) {
 // Receipt Scan with Gemini API
 // ============================================
 
-// ---- API Key Management ----
 function getApiKey() {
     return localStorage.getItem('mm_kakeibo_gemini_key') || '';
 }
 
-function saveApiKey(key) {
+function getGasUrl() {
+    return localStorage.getItem('mm_kakeibo_gas_url') || '';
+}
+
+function saveSettingsData(key, gasUrl) {
     localStorage.setItem('mm_kakeibo_gemini_key', key);
+    localStorage.setItem('mm_kakeibo_gas_url', gasUrl);
 }
 
 function checkApiKey() {
@@ -558,6 +603,7 @@ function checkApiKey() {
 
 function openSettings() {
     document.getElementById('apiKeyInput').value = getApiKey();
+    document.getElementById('gasUrlInput').value = getGasUrl();
     document.getElementById('settingsModal').style.display = '';
 }
 
@@ -567,14 +613,18 @@ function closeSettings() {
 
 function handleSaveSettings() {
     const key = document.getElementById('apiKeyInput').value.trim();
-    if (key) {
-        saveApiKey(key);
-        showToast('✅ APIキーを保存しました');
-        checkApiKey();
-    } else {
-        showToast('⚠️ APIキーを入力してください');
-    }
+    const gasUrl = document.getElementById('gasUrlInput').value.trim();
+    
+    saveSettingsData(key, gasUrl);
+    showToast('✅ 設定を保存しました');
+    checkApiKey();
     closeSettings();
+    
+    // Trigger sync if GAS URL was added
+    if (gasUrl) {
+        showToast('🔄 スプレッドシートと同期中...');
+        loadEntries();
+    }
 }
 
 // ---- Image Handling ----
