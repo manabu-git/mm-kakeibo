@@ -622,8 +622,13 @@ function handleSaveSettings() {
     
     // Trigger sync if GAS URL was added
     if (gasUrl) {
-        showToast('🔄 スプレッドシートと同期中...');
-        loadEntries();
+        showToast('🔄 スプレッドシートから最新データを再取得中...');
+        // 保存したURLを使って強制的にスプレッドシートのデータでローカルを上書きする
+        loadEntries().then(() => {
+            updateDashboard();
+            updateHistory();
+            showToast('✅ スプレッドシートと同期完了！');
+        });
     }
 }
 
@@ -1056,17 +1061,19 @@ function initEvents() {
 }
 
 // ---- Initialization ----
-function init() {
-    loadEntries();
+async function init() {
+    // 最初にデータを読み込む（同期完了を待つ）
+    await loadEntries();
+
     updateMonthDisplay();
     renderCategoryGrid();
     populateCategoryFilter();
     initEvents();
     updateDashboard();
     checkApiKey();
-
-    // Add sample data if empty (for first visit demo)
-    if (state.entries.length === 0) {
+    
+    // データが0件、かつスプレッドシート連携も設定されていない場合だけ仮データを入れる
+    if (state.entries.length === 0 && !getGasUrl()) {
         addSampleData();
         saveEntries();
         updateDashboard();
