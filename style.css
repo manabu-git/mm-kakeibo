@@ -844,19 +844,22 @@ body::before {
     font-size: 1.5rem;
 }
 
-.person-btn.active[data-person="manabu"] {
+.person-btn.active[data-person="manabu"],
+.person-btn.active[data-scan-person="manabu"] {
     background: var(--manabu-color-bg);
     border-color: rgba(96, 165, 250, 0.3);
     color: var(--manabu-color);
 }
 
-.person-btn.active[data-person="mako"] {
+.person-btn.active[data-person="mako"],
+.person-btn.active[data-scan-person="mako"] {
     background: var(--mako-color-bg);
     border-color: rgba(244, 114, 182, 0.3);
     color: var(--mako-color);
 }
 
-.person-btn.active[data-person="shared"] {
+.person-btn.active[data-person="shared"],
+.person-btn.active[data-scan-person="shared"] {
     background: var(--shared-color-bg);
     border-color: rgba(192, 132, 252, 0.3);
     color: var(--shared-color);
