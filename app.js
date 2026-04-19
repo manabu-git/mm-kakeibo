@@ -1071,44 +1071,6 @@ async function init() {
     initEvents();
     updateDashboard();
     checkApiKey();
-    
-    // データが0件、かつスプレッドシート連携も設定されていない場合だけ仮データを入れる
-    if (state.entries.length === 0 && !getGasUrl()) {
-        addSampleData();
-        saveEntries();
-        updateDashboard();
-    }
-}
-
-function addSampleData() {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = today.getMonth();
-
-    const sampleEntries = [
-        { type: 'income', amount: 350000, person: 'manabu', category: 'salary', date: `${y}-${String(m+1).padStart(2,'0')}-25`, memo: '3月分給料' },
-        { type: 'income', amount: 280000, person: 'mako', category: 'salary', date: `${y}-${String(m+1).padStart(2,'0')}-25`, memo: '3月分給料' },
-        { type: 'expense', amount: 85000, person: 'shared', category: 'housing', date: `${y}-${String(m+1).padStart(2,'0')}-01`, memo: '家賃' },
-        { type: 'expense', amount: 45000, person: 'shared', category: 'food', date: `${y}-${String(m+1).padStart(2,'0')}-05`, memo: 'スーパー（1週目）' },
-        { type: 'expense', amount: 12000, person: 'shared', category: 'utilities', date: `${y}-${String(m+1).padStart(2,'0')}-10`, memo: '電気・ガス代' },
-        { type: 'expense', amount: 8500, person: 'manabu', category: 'communication', date: `${y}-${String(m+1).padStart(2,'0')}-03`, memo: 'スマホ代' },
-        { type: 'expense', amount: 3200, person: 'manabu', category: 'dining', date: `${y}-${String(m+1).padStart(2,'0')}-07`, memo: 'ラーメン屋' },
-        { type: 'expense', amount: 5400, person: 'mako', category: 'clothing', date: `${y}-${String(m+1).padStart(2,'0')}-12`, memo: 'ユニクロ' },
-        { type: 'expense', amount: 1500, person: 'mako', category: 'entertainment', date: `${y}-${String(m+1).padStart(2,'0')}-14`, memo: 'Netflix' },
-        { type: 'expense', amount: 38000, person: 'shared', category: 'food', date: `${y}-${String(m+1).padStart(2,'0')}-15`, memo: 'スーパー（2週目）' },
-        { type: 'expense', amount: 2800, person: 'manabu', category: 'entertainment', date: `${y}-${String(m+1).padStart(2,'0')}-16`, memo: 'Amazon Prime' },
-        { type: 'expense', amount: 15000, person: 'shared', category: 'dining', date: `${y}-${String(m+1).padStart(2,'0')}-18`, memo: '焼肉ディナー' },
-        { type: 'expense', amount: 4500, person: 'manabu', category: 'transport', date: `${y}-${String(m+1).padStart(2,'0')}-20`, memo: 'ガソリン代' },
-        { type: 'expense', amount: 6800, person: 'mako', category: 'groceries', date: `${y}-${String(m+1).padStart(2,'0')}-19`, memo: 'ドラッグストア' },
-    ];
-
-    sampleEntries.forEach(entry => {
-        state.entries.push({
-            ...entry,
-            id: generateId(),
-            createdAt: new Date().toISOString(),
-        });
-    });
 }
 
 // Start app
