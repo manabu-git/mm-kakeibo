@@ -835,10 +835,33 @@ async function executeOCR(retryCount = 0) {
 
         if (!text) throw new Error('APIからの応答が空です');
 
-        // Parse JSON from response (handle markdown code blocks)
+        // Parse JSON from response (handle markdown code blocks more robustly)
         let jsonStr = text;
-        const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) jsonStr = jsonMatch[1];
+        
+        // Remove markdown code blocks
+        jsonStr = jsonStr.replace(/```[a-z]*\n?/ig, '').replace(/```\n?/g, '');
+        
+        // Extract just the JSON object or array portion
+        const firstCurly = jsonStr.indexOf('{');
+        const firstSquare = jsonStr.indexOf('[');
+        const lastCurly = jsonStr.lastIndexOf('}');
+        const lastSquare = jsonStr.lastIndexOf(']');
+        
+        let startIdx = -1;
+        let endIdx = -1;
+        
+        if (firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare)) {
+            startIdx = firstCurly;
+            endIdx = lastCurly;
+        } else if (firstSquare !== -1) {
+            startIdx = firstSquare;
+            endIdx = lastSquare;
+        }
+        
+        if (startIdx !== -1 && endIdx !== -1) {
+            jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+        }
+        
         jsonStr = jsonStr.trim();
 
         const result = JSON.parse(jsonStr);
