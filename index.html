@@ -348,12 +348,11 @@
                     <input type="password" id="apiKeyInput" class="form-input" placeholder="AIza...">
                     <p class="form-hint">
                         <a href="https://aistudio.google.com/app/apikey" target="_blank" class="form-link">Google AI Studio</a> で無料取得できます<br>
-                        ※コピー用: <code style="user-select: all; background: #f1f5f9; padding: 2px 4px; border-radius: 4px; word-break: break-all;">AIzaSyBNt-itPYoabKG_Ki3c-0So-MtvlaCKD6g</code>
                     </p>
                 </div>
                 <div class="form-group" style="margin-top: var(--space-md);">
                     <label for="gasUrlInput" class="form-label">Google Sheets API URL</label>
-                    <input type="url" id="gasUrlInput" class="form-input" placeholder="https://script.google.com/macros/s/...">
+                    <textarea id="gasUrlInput" class="form-input" placeholder="https://script.google.com/macros/s/..." rows="4" style="resize: vertical; line-height: 1.4; font-family: monospace;"></textarea>
                     <p class="form-hint">
                         スプレッドシート連動用のWebアプリURL（設定すると夫婦で同期されます）<br>
                         <span style="font-size: 0.85em; color: #64748b;">取得手順: Apps Script「デプロイ」＞「新しいデプロイ」＞「ウェブアプリ」＞アクセス「全員」</span><br>
