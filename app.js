@@ -802,6 +802,7 @@ async function executeOCR(retryCount = 0) {
                     generationConfig: {
                         temperature: 0.1,
                         maxOutputTokens: 2048,
+                        responseMimeType: "application/json",
                     }
                 })
             }
