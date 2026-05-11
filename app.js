@@ -814,8 +814,7 @@ async function executeOCR(retryCount = 0) {
                         temperature: 0.1,
                         maxOutputTokens: 16384,
                         responseMimeType: "application/json",
-                        thinkingConfig: { thinkingBudget: 0 },
-                    }
+                    },
                 })
             }
         );
@@ -847,9 +846,19 @@ async function executeOCR(retryCount = 0) {
         }
 
         const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const candidate = data.candidates?.[0];
+        const finishReason = candidate?.finishReason;
+        const text = candidate?.content?.parts?.[0]?.text;
 
-        if (!text) throw { friendly: '🤔 AIからの応答が空でした。レシートが写真にはっきり写っているか確認して、もう一度試してください', raw: 'Empty response from API' };
+        console.log('Gemini finishReason:', finishReason);
+        console.log('Gemini response length:', text?.length);
+
+        if (!text) throw { friendly: '🤔 AIからの応答が空でした。レシートが写真にはっきり写っているか確認して、もう一度試してください', raw: `finishReason: ${finishReason}` };
+
+        // finishReason が MAX_TOKENS なら途中切れ
+        if (finishReason === 'MAX_TOKENS') {
+            throw { friendly: '📋 レシートの品目が多すぎて、AIの出力が途中で切れてしまいました。品目の少ないレシートで試すか、レシートを分けて撮影してください', raw: `出力が途中切れ (finishReason: MAX_TOKENS)\n末尾: ...${text.slice(-150)}` };
+        }
 
         // Parse JSON from response (handle markdown code blocks more robustly)
         let jsonStr = text;
@@ -884,7 +893,9 @@ async function executeOCR(retryCount = 0) {
         try {
             result = JSON.parse(jsonStr);
         } catch (parseErr) {
-            throw { friendly: '📋 レシートの内容をうまく読み取れませんでした。レシート全体がはっきり写るように撮り直してください', raw: `JSON parse error: ${parseErr.message}` };
+            // 生レスポンスの末尾を表示してデバッグ可能に
+            const tail = text.length > 300 ? '...' + text.slice(-300) : text;
+            throw { friendly: '📋 レシートの内容をうまく読み取れませんでした。レシート全体がはっきり写るように撮り直してください', raw: `${parseErr.message}\nfinishReason: ${finishReason}\n\n--- 生レスポンス末尾 ---\n${tail}` };
         }
 
         state.scanResult = result;
