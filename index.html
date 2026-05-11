@@ -142,6 +142,25 @@
 
                 <!-- Camera Input -->
                 <div class="scan-input-area" id="scanInputArea">
+                    <!-- Person Selection (#1: moved here from results) -->
+                    <div class="scan-person-section">
+                        <label class="form-label">誰の買い物？</label>
+                        <div class="person-toggle">
+                            <button type="button" class="person-btn active" data-scan-person="manabu" id="scanPersonManabu">
+                                <span class="person-btn-avatar">🧑‍💻</span>
+                                <span>manabu</span>
+                            </button>
+                            <button type="button" class="person-btn" data-scan-person="mako" id="scanPersonMako">
+                                <span class="person-btn-avatar">👩‍💼</span>
+                                <span>mako</span>
+                            </button>
+                            <button type="button" class="person-btn" data-scan-person="shared" id="scanPersonShared">
+                                <span class="person-btn-avatar">👫</span>
+                                <span>共通</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <label for="receiptCamera" class="scan-capture-btn">
                         <span class="scan-capture-icon">📷</span>
                         <span class="scan-capture-text">レシートを撮影</span>
@@ -175,6 +194,18 @@
                     <p class="loading-sub">店名・品目・金額を自動で読み取っています</p>
                 </div>
 
+                <!-- Error (#2: エラー専用UI) -->
+                <div id="scanError" class="scan-error" style="display:none;">
+                    <div class="scan-error-icon">😥</div>
+                    <p class="scan-error-message" id="scanErrorMessage"></p>
+                    <p class="scan-error-raw" id="scanErrorRaw"></p>
+                    <div class="scan-error-actions">
+                        <button id="scanRetryBtn" class="scan-execute-btn"><span>🔄</span> もう一度試す</button>
+                        <button id="scanManualBtn" class="save-total-btn"><span>📝</span> 手動で入力</button>
+                        <button id="scanResetBtn" class="scan-cancel-btn">📷 別のレシートを撮る</button>
+                    </div>
+                </div>
+
                 <!-- Results -->
                 <div id="scanResults" class="scan-results" style="display:none;">
                     <div class="result-header">
@@ -183,25 +214,6 @@
 
                     <!-- Store Info -->
                     <div class="result-store" id="resultStore"></div>
-
-                    <!-- Person Selection -->
-                    <div class="result-person-section">
-                        <label class="form-label">誰の買い物？</label>
-                        <div class="person-toggle">
-                            <button type="button" class="person-btn active" data-scan-person="manabu" id="scanPersonManabu">
-                                <span class="person-btn-avatar">🧑‍💻</span>
-                                <span>manabu</span>
-                            </button>
-                            <button type="button" class="person-btn" data-scan-person="mako" id="scanPersonMako">
-                                <span class="person-btn-avatar">👩‍💼</span>
-                                <span>mako</span>
-                            </button>
-                            <button type="button" class="person-btn" data-scan-person="shared" id="scanPersonShared">
-                                <span class="person-btn-avatar">👫</span>
-                                <span>共通</span>
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- Items -->
                     <div class="result-items" id="resultItems"></div>
@@ -363,6 +375,76 @@
             <div class="modal-actions">
                 <button id="cancelSettings" class="modal-btn cancel-btn">キャンセル</button>
                 <button id="saveSettings" class="modal-btn confirm-btn save-settings-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal (#3) -->
+    <div id="editModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content edit-modal">
+            <h3 class="modal-title">📝 記録を編集</h3>
+            <div class="edit-form">
+                <div class="form-group">
+                    <label for="editType" class="form-label">種別</label>
+                    <select id="editType" class="form-input edit-select">
+                        <option value="expense">📤 支出</option>
+                        <option value="income">📥 収入</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editAmount" class="form-label">金額</label>
+                    <div class="amount-input-wrapper">
+                        <span class="currency-symbol">¥</span>
+                        <input type="number" id="editAmount" class="form-input amount-input" min="0" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editCategory" class="form-label">カテゴリ</label>
+                    <select id="editCategory" class="form-input edit-select"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">誰の？</label>
+                    <div class="person-toggle" id="editPersonToggle">
+                        <button type="button" class="person-btn" data-edit-person="manabu">
+                            <span class="person-btn-avatar">🧑‍💻</span>
+                            <span>manabu</span>
+                        </button>
+                        <button type="button" class="person-btn" data-edit-person="mako">
+                            <span class="person-btn-avatar">👩‍💼</span>
+                            <span>mako</span>
+                        </button>
+                        <button type="button" class="person-btn" data-edit-person="shared">
+                            <span class="person-btn-avatar">👫</span>
+                            <span>共通</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editDate" class="form-label">日付</label>
+                    <input type="date" id="editDate" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="editMemo" class="form-label">メモ</label>
+                    <input type="text" id="editMemo" class="form-input" placeholder="メモ">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelEdit" class="modal-btn cancel-btn">キャンセル</button>
+                <button id="saveEdit" class="modal-btn confirm-btn">保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicate Warning Modal (#7) -->
+    <div id="duplicateModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <h3 class="modal-title">⚠️ 重複の可能性があります</h3>
+            <p class="modal-text">以下と同じ記録がすでに登録されています：</p>
+            <div id="duplicateList" class="duplicate-list"></div>
+            <p class="modal-text">それでも登録しますか？</p>
+            <div class="modal-actions">
+                <button id="cancelDuplicate" class="modal-btn cancel-btn">キャンセル</button>
+                <button id="confirmDuplicate" class="modal-btn confirm-btn">登録する</button>
             </div>
         </div>
     </div>

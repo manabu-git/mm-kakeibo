@@ -1433,6 +1433,20 @@ body::before {
     color: var(--accent-balance);
 }
 
+select.result-item-category {
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    text-align: center;
+}
+
+select.result-item-category:hover {
+    background: rgba(129, 140, 248, 0.2);
+}
+
 .result-item-amount {
     font-size: 0.9rem;
     font-weight: 700;
@@ -1645,3 +1659,105 @@ body::before {
 }
 
 /* Dark mode invert removed for light theme */
+
+/* ============================================
+   #1: Scan Person Section (before capture)
+   ============================================ */
+.scan-person-section {
+    margin-bottom: var(--space-md);
+}
+
+/* ============================================
+   #2: Scan Error UI
+   ============================================ */
+.scan-error {
+    text-align: center;
+    padding: var(--space-xl) var(--space-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+}
+
+.scan-error-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-md);
+}
+
+.scan-error-message {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+    line-height: 1.6;
+}
+
+.scan-error-raw {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-lg);
+    padding: var(--space-sm) var(--space-md);
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: var(--radius-sm);
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.scan-error-raw:empty {
+    display: none;
+}
+
+.scan-error-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* ============================================
+   #3: Transaction Item Clickable + Edit Modal
+   ============================================ */
+.transaction-item {
+    cursor: pointer;
+}
+
+.edit-modal {
+    max-width: 420px;
+    width: 100%;
+}
+
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.edit-select {
+    padding: var(--space-md);
+    font-size: 0.95rem;
+    appearance: auto;
+}
+
+/* ============================================
+   #7: Duplicate Warning
+   ============================================ */
+.duplicate-list {
+    margin: var(--space-md) 0;
+    padding: var(--space-md);
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: var(--radius-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.duplicate-item {
+    padding: var(--space-sm) 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.duplicate-item:last-child {
+    border-bottom: none;
+}
+

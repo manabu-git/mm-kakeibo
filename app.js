@@ -404,7 +404,7 @@ function createTransactionHTML(entry) {
     const isExpense = entry.type === 'expense';
 
     return `
-        <div class="transaction-item" data-id="${entry.id}">
+        <div class="transaction-item" data-id="${entry.id}" onclick="openEditModal('${entry.id}')">
             <div class="transaction-category-icon" style="background: ${cat.color}22;">
                 ${cat.icon}
             </div>
@@ -420,7 +420,7 @@ function createTransactionHTML(entry) {
             <div class="transaction-amount ${entry.type}">
                 ${isExpense ? '-' : '+'}${formatCurrency(entry.amount)}
             </div>
-            <button class="transaction-delete" onclick="requestDelete('${entry.id}')" aria-label="削除">🗑️</button>
+            <button class="transaction-delete" onclick="event.stopPropagation(); requestDelete('${entry.id}')" aria-label="削除">🗑️</button>
         </div>
     `;
 }
@@ -526,23 +526,33 @@ function handleSubmit(e) {
         createdAt: new Date().toISOString(),
     };
 
-    state.entries.push(entry);
-    saveEntries();
+    const commitEntry = () => {
+        state.entries.push(entry);
+        saveEntries();
 
-    // Reset form
-    document.getElementById('amount').value = '';
-    document.getElementById('memo').value = '';
-    state.selectedCategory = null;
-    renderCategoryGrid();
+        // Reset form
+        document.getElementById('amount').value = '';
+        document.getElementById('memo').value = '';
+        state.selectedCategory = null;
+        renderCategoryGrid();
 
-    const cat = getCategoryById(entry.category, entry.type);
-    showToast(`✅ ${cat.icon} ${formatCurrency(amount)} を記録しました`);
+        const cat = getCategoryById(entry.category, entry.type);
+        showToast(`✅ ${cat.icon} ${formatCurrency(amount)} を記録しました`);
 
-    // Update date to current month view
-    const d = new Date(date);
-    state.currentYear = d.getFullYear();
-    state.currentMonth = d.getMonth();
-    updateMonthDisplay();
+        // Update date to current month view
+        const d = new Date(date);
+        state.currentYear = d.getFullYear();
+        state.currentMonth = d.getMonth();
+        updateMonthDisplay();
+    };
+
+    // #7: Duplicate check
+    const duplicates = findDuplicates(entry);
+    if (duplicates.length > 0) {
+        showDuplicateWarning(duplicates, commitEntry);
+    } else {
+        commitEntry();
+    }
 }
 
 // ---- Delete ----
@@ -702,6 +712,7 @@ function resetScan() {
     document.getElementById('scanPreview').style.display = 'none';
     document.getElementById('scanResults').style.display = 'none';
     document.getElementById('scanLoading').style.display = 'none';
+    document.getElementById('scanError').style.display = 'none';
     // Reset file inputs
     document.getElementById('receiptCamera').value = '';
     document.getElementById('receiptFile').value = '';
@@ -809,7 +820,8 @@ async function executeOCR(retryCount = 0) {
         );
 
         if (!response.ok) {
-            const err = await response.json();
+            let err = {};
+            try { err = await response.json(); } catch (_) {}
             const errorMsg = err.error?.message || '';
 
             // Auto-retry on rate limit / quota errors
@@ -819,22 +831,24 @@ async function executeOCR(retryCount = 0) {
                 return executeOCR(retryCount + 1);
             }
 
-            // Friendly error messages
+            // Friendly error messages with raw detail
             if (response.status === 429 || errorMsg.toLowerCase().includes('quota')) {
-                throw new Error('API利用制限に達しました。少し待ってからもう一度お試しください');
+                throw { friendly: '🕐 アクセスが集中しています。1分ほど待ってからもう一度お試しください', raw: errorMsg };
             } else if (response.status === 400) {
-                throw new Error('APIキーが無効です。設定を確認してください');
+                throw { friendly: '🔑 APIキーが正しくないようです。設定画面でキーを確認・再入力してください', raw: errorMsg };
             } else if (response.status === 403) {
-                throw new Error('APIキーの権限がありません。Google AI Studioで確認してください');
+                throw { friendly: '🚫 このAPIキーではアクセスが許可されていません。Google AI Studio でキーの設定を確認してください', raw: errorMsg };
+            } else if (response.status >= 500) {
+                throw { friendly: '🔧 Google側のサーバーで問題が発生しています。しばらく待ってから再試行してください', raw: errorMsg || `HTTP ${response.status}` };
             } else {
-                throw new Error(`APIエラー (${response.status})`);
+                throw { friendly: '⚠️ 読み取りに失敗しました。もう一度お試しください', raw: errorMsg || `HTTP ${response.status}` };
             }
         }
 
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-        if (!text) throw new Error('APIからの応答が空です');
+        if (!text) throw { friendly: '🤔 AIからの応答が空でした。レシートが写真にはっきり写っているか確認して、もう一度試してください', raw: 'Empty response from API' };
 
         // Parse JSON from response (handle markdown code blocks more robustly)
         let jsonStr = text;
@@ -865,7 +879,13 @@ async function executeOCR(retryCount = 0) {
         
         jsonStr = jsonStr.trim();
 
-        const result = JSON.parse(jsonStr);
+        let result;
+        try {
+            result = JSON.parse(jsonStr);
+        } catch (parseErr) {
+            throw { friendly: '📋 レシートの内容をうまく読み取れませんでした。レシート全体がはっきり写るように撮り直してください', raw: `JSON parse error: ${parseErr.message}` };
+        }
+
         state.scanResult = result;
 
         // Display results
@@ -874,8 +894,19 @@ async function executeOCR(retryCount = 0) {
     } catch (error) {
         console.error('OCR Error:', error);
         document.getElementById('scanLoading').style.display = 'none';
-        document.getElementById('scanPreview').style.display = '';
-        showToast(`❌ ${error.message}`);
+
+        let friendlyMsg, rawMsg;
+        if (error.friendly) {
+            friendlyMsg = error.friendly;
+            rawMsg = error.raw;
+        } else if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+            friendlyMsg = '📶 ネットワークに接続できません。Wi-Fiや電波の状態を確認してください';
+            rawMsg = error.message || 'Network error';
+        } else {
+            friendlyMsg = '⚠️ 予期しないエラーが発生しました。もう一度お試しください';
+            rawMsg = error.message || String(error);
+        }
+        showScanError(friendlyMsg, rawMsg);
     }
 }
 
@@ -898,11 +929,19 @@ function displayScanResults(result) {
     if (result.items && result.items.length > 0) {
         itemsContainer.innerHTML = result.items.map((item, i) => {
             const cat = getCategoryById(item.category, 'expense');
+            
+            // Generate category select options
+            const optionsHtml = CATEGORIES.expense.map(c => 
+                `<option value="${c.id}" ${c.id === cat.id ? 'selected' : ''}>${c.icon} ${c.name}</option>`
+            ).join('');
+
             return `
                 <div class="result-item">
                     <input type="checkbox" class="result-item-checkbox" data-index="${i}" checked>
                     <span class="result-item-name">${item.name}</span>
-                    <span class="result-item-category">${cat.icon} ${cat.name}</span>
+                    <select class="result-item-category result-item-category-select" data-index="${i}">
+                        ${optionsHtml}
+                    </select>
                     <span class="result-item-amount">${formatCurrency(item.price)}</span>
                 </div>
             `;
@@ -926,36 +965,55 @@ function saveAllScannedItems() {
     const date = result.date || new Date().toISOString().split('T')[0];
     const storeName = [result.store_name, result.store_branch].filter(Boolean).join(' ');
     const checkboxes = document.querySelectorAll('.result-item-checkbox');
-    let savedCount = 0;
 
+    // Build entries to save
+    const newEntries = [];
     result.items.forEach((item, i) => {
         const checkbox = checkboxes[i];
+        const categorySelect = document.querySelector(`.result-item-category-select[data-index="${i}"]`);
+        const itemCategory = categorySelect ? categorySelect.value : (item.category || 'food');
+
         if (checkbox && checkbox.checked) {
-            state.entries.push({
+            newEntries.push({
                 id: generateId(),
                 type: 'expense',
                 amount: Math.round(item.price),
                 person: state.scanPerson,
-                category: item.category || 'food',
+                category: itemCategory,
                 date: date,
                 memo: `${item.name}（${storeName}）`,
                 store: storeName,
                 createdAt: new Date().toISOString(),
             });
-            savedCount++;
         }
     });
 
-    saveEntries();
-    showToast(`✅ ${savedCount}件の記録を登録しました`);
+    const commitAll = () => {
+        newEntries.forEach(e => state.entries.push(e));
+        saveEntries();
+        showToast(`✅ ${newEntries.length}件登録しました。続けて撮影できます`);
 
-    // Navigate to dashboard for the saved month
-    const d = new Date(date);
-    state.currentYear = d.getFullYear();
-    state.currentMonth = d.getMonth();
-    updateMonthDisplay();
-    resetScan();
-    switchTab('dashboard');
+        const d = new Date(date);
+        state.currentYear = d.getFullYear();
+        state.currentMonth = d.getMonth();
+        updateMonthDisplay();
+        resetScan(); // #4: Stay on scan tab
+    };
+
+    // #7: Duplicate check
+    const allDuplicates = newEntries.flatMap(e => findDuplicates(e));
+    if (allDuplicates.length > 0) {
+        // Deduplicate the list
+        const seen = new Set();
+        const uniqueDups = allDuplicates.filter(d => {
+            if (seen.has(d.id)) return false;
+            seen.add(d.id);
+            return true;
+        });
+        showDuplicateWarning(uniqueDups, commitAll);
+    } else {
+        commitAll();
+    }
 }
 
 function saveTotalOnly() {
@@ -973,7 +1031,7 @@ function saveTotalOnly() {
     });
     const mainCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'food';
 
-    state.entries.push({
+    const entry = {
         id: generateId(),
         type: 'expense',
         amount: Math.round(result.total),
@@ -983,17 +1041,147 @@ function saveTotalOnly() {
         memo: storeName,
         store: storeName,
         createdAt: new Date().toISOString(),
+    };
+
+    const commitTotal = () => {
+        state.entries.push(entry);
+        saveEntries();
+        showToast(`✅ ${formatCurrency(result.total)} を登録しました。続けて撮影できます`);
+
+        const d = new Date(date);
+        state.currentYear = d.getFullYear();
+        state.currentMonth = d.getMonth();
+        updateMonthDisplay();
+        resetScan(); // #4: Stay on scan tab
+    };
+
+    // #7: Duplicate check
+    const duplicates = findDuplicates(entry);
+    if (duplicates.length > 0) {
+        showDuplicateWarning(duplicates, commitTotal);
+    } else {
+        commitTotal();
+    }
+}
+
+// ============================================
+// #7: Duplicate Check
+// ============================================
+
+function findDuplicates(newEntry) {
+    return state.entries.filter(existing =>
+        existing.date === newEntry.date &&
+        existing.amount === newEntry.amount &&
+        existing.category === newEntry.category &&
+        existing.person === newEntry.person
+    );
+}
+
+let _duplicateConfirmCallback = null;
+
+function showDuplicateWarning(duplicates, onConfirm) {
+    _duplicateConfirmCallback = onConfirm;
+    const list = document.getElementById('duplicateList');
+    list.innerHTML = duplicates.map(d => {
+        const cat = getCategoryById(d.category, d.type);
+        const person = PERSON_INFO[d.person] || PERSON_INFO.shared;
+        const dateObj = new Date(d.date);
+        const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+        return `<div class="duplicate-item">${dateStr} ${cat.icon} ${cat.name} ${formatCurrency(d.amount)} (${person.name})</div>`;
+    }).join('');
+    document.getElementById('duplicateModal').style.display = '';
+}
+
+function closeDuplicateModal() {
+    _duplicateConfirmCallback = null;
+    document.getElementById('duplicateModal').style.display = 'none';
+}
+
+function confirmDuplicate() {
+    if (_duplicateConfirmCallback) _duplicateConfirmCallback();
+    closeDuplicateModal();
+}
+
+// ============================================
+// #2: Scan Error UI
+// ============================================
+
+function showScanError(message, rawError) {
+    document.getElementById('scanPreview').style.display = 'none';
+    document.getElementById('scanLoading').style.display = 'none';
+    document.getElementById('scanResults').style.display = 'none';
+    const errorDiv = document.getElementById('scanError');
+    errorDiv.style.display = '';
+    document.getElementById('scanErrorMessage').textContent = message;
+    document.getElementById('scanErrorRaw').textContent = rawError || '';
+}
+
+// ============================================
+// #3: Edit Modal
+// ============================================
+
+function populateEditCategories(type) {
+    const select = document.getElementById('editCategory');
+    const cats = CATEGORIES[type] || CATEGORIES.expense;
+    select.innerHTML = cats.map(c =>
+        `<option value="${c.id}">${c.icon} ${c.name}</option>`
+    ).join('');
+}
+
+function openEditModal(id) {
+    const entry = state.entries.find(e => e.id === id);
+    if (!entry) return;
+
+    state.editTargetId = id;
+
+    // Populate type & trigger category update
+    document.getElementById('editType').value = entry.type;
+    populateEditCategories(entry.type);
+
+    document.getElementById('editAmount').value = entry.amount;
+    document.getElementById('editCategory').value = entry.category;
+    document.getElementById('editDate').value = entry.date;
+    document.getElementById('editMemo').value = entry.memo || '';
+
+    // Person toggle
+    document.querySelectorAll('[data-edit-person]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.editPerson === entry.person);
     });
 
-    saveEntries();
-    showToast(`✅ ${formatCurrency(result.total)} を登録しました`);
+    document.getElementById('editModal').style.display = '';
+}
 
-    const d = new Date(date);
-    state.currentYear = d.getFullYear();
-    state.currentMonth = d.getMonth();
-    updateMonthDisplay();
-    resetScan();
-    switchTab('dashboard');
+function closeEditModal() {
+    state.editTargetId = null;
+    document.getElementById('editModal').style.display = 'none';
+}
+
+function handleEditSave() {
+    const id = state.editTargetId;
+    const entry = state.entries.find(e => e.id === id);
+    if (!entry) return;
+
+    const amount = parseInt(document.getElementById('editAmount').value, 10);
+    if (!amount || amount <= 0) {
+        showToast('⚠️ 金額を入力してください');
+        return;
+    }
+
+    entry.type = document.getElementById('editType').value;
+    entry.amount = amount;
+    entry.category = document.getElementById('editCategory').value;
+    entry.date = document.getElementById('editDate').value;
+    entry.memo = document.getElementById('editMemo').value.trim();
+
+    // Get selected person
+    const activePersonBtn = document.querySelector('[data-edit-person].active');
+    if (activePersonBtn) entry.person = activePersonBtn.dataset.editPerson;
+
+    saveEntries();
+    closeEditModal();
+    updateDashboard();
+    updateHistory();
+    showToast('✅ 記録を更新しました');
 }
 
 // ---- Event Binding ----
@@ -1075,6 +1263,37 @@ function initEvents() {
     document.getElementById('scanAgainBtn').addEventListener('click', resetScan);
     document.getElementById('saveAllBtn').addEventListener('click', saveAllScannedItems);
     document.getElementById('saveTotalBtn').addEventListener('click', saveTotalOnly);
+
+    // Scan error actions (#2)
+    document.getElementById('scanRetryBtn').addEventListener('click', () => executeOCR());
+    document.getElementById('scanManualBtn').addEventListener('click', () => {
+        resetScan();
+        switchTab('add');
+    });
+    document.getElementById('scanResetBtn').addEventListener('click', resetScan);
+
+    // Edit modal (#3)
+    document.getElementById('saveEdit').addEventListener('click', handleEditSave);
+    document.getElementById('cancelEdit').addEventListener('click', closeEditModal);
+    document.getElementById('editModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeEditModal();
+    });
+    document.getElementById('editType').addEventListener('change', (e) => {
+        populateEditCategories(e.target.value);
+    });
+    document.querySelectorAll('[data-edit-person]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-edit-person]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // Duplicate modal (#7)
+    document.getElementById('confirmDuplicate').addEventListener('click', confirmDuplicate);
+    document.getElementById('cancelDuplicate').addEventListener('click', closeDuplicateModal);
+    document.getElementById('duplicateModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeDuplicateModal();
+    });
 
     // Set default date
     const today = new Date();
