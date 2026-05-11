@@ -812,8 +812,9 @@ async function executeOCR(retryCount = 0) {
                     }],
                     generationConfig: {
                         temperature: 0.1,
-                        maxOutputTokens: 8192,
+                        maxOutputTokens: 16384,
                         responseMimeType: "application/json",
+                        thinkingConfig: { thinkingBudget: 0 },
                     }
                 })
             }
